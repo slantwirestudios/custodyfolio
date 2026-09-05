@@ -54,10 +54,12 @@ export default function HomePage() {
             <TrackedSignupLink contentCode="hero" className="inline-flex min-h-12 items-center justify-center rounded-md bg-teal-700 px-6 text-base font-semibold text-white transition hover:bg-teal-800">
               Start 30 days free
             </TrackedSignupLink>
+            <Link href="/demo" className="inline-flex min-h-12 items-center justify-center rounded-md border border-teal-700 bg-white px-6 text-base font-semibold text-teal-700 transition hover:bg-teal-50">
+              Watch the walkthrough
+            </Link>
             <a href="/demo/custody-folio-sample-report.pdf" className="inline-flex min-h-12 items-center text-sm font-semibold text-teal-700 underline underline-offset-4">
               See a sample report (PDF)
             </a>
-            <Link href="/demo" className="inline-flex min-h-12 items-center text-sm font-semibold text-teal-700 underline underline-offset-4">Watch the walkthrough</Link>
           </div>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-600">
             No card required. You may subscribe during the trial if you choose. Custody Folio helps organize records and does not provide legal advice.
