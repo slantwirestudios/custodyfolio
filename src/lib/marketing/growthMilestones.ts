@@ -36,7 +36,10 @@ function customerReportCount(
 ) {
   return (
     dataset?.auditLogs.filter(
-      (entry) => entry.userId === userId && entry.action === "exported"
+      (entry) =>
+        entry.userId === userId &&
+        entry.action === "exported" &&
+        entry.entityType === "report"
     ).length || 0
   );
 }

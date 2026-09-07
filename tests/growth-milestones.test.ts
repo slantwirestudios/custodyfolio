@@ -9,6 +9,43 @@ const userId = "customer1";
 const timestamp = "2026-08-31T00:00:00.000Z";
 
 describe("growth milestones", () => {
+  it.each(["evidenceIndex", "evidenceItem", "sectionExport", "timeline"])(
+    "does not count a %s export or let it suppress the first report",
+    (entityType) => {
+      const before = createBlankRecordsDataset();
+      const after = createBlankRecordsDataset();
+      after.auditLogs.push({
+        id: "unrelated-export", userId, caseId: "matter1", entityType,
+        entityId: "export1", action: "exported", timestamp,
+        metadataSummary: "Export completed",
+      });
+      expect(firstGrowthMilestones({ before, after, userId })).toEqual([]);
+
+      const withReport = { ...after, auditLogs: [...after.auditLogs, {
+        ...after.auditLogs[0], id: "first-report", entityType: "report",
+      }] };
+      expect(firstGrowthMilestones({ before: after, after: withReport, userId }))
+        .toEqual(["customer_first_report_created"]);
+      expect(firstGrowthMilestones({ before: withReport, after: withReport, userId }))
+        .toEqual([]);
+    }
+  );
+
+  it("ignores another customer's report and a report that was not exported", () => {
+    const before = createBlankRecordsDataset();
+    const after = createBlankRecordsDataset();
+    after.auditLogs.push({
+      id: "other-report", userId: "someoneElse", caseId: "matter2",
+      entityType: "report", entityId: "report1", action: "exported", timestamp,
+      metadataSummary: "Report exported",
+    }, {
+      id: "unexported-report", userId, caseId: "matter1",
+      entityType: "report", entityId: "report2", action: "created", timestamp,
+      metadataSummary: "Report created",
+    });
+    expect(firstGrowthMilestones({ before, after, userId })).toEqual([]);
+  });
+
   it("counts only customer owned records across supported collections", () => {
     const dataset = createBlankRecordsDataset();
     dataset.dateNotes.push({
