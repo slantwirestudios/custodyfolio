@@ -8,6 +8,16 @@
 (losttofound_proxy) {
 	encode zstd gzip
 
+	# Google Search Console HTTPS ownership verification; retain across releases.
+	@google_verification {
+		host custodyfolio.com
+		path /google3ac2616a1ec75406.html
+	}
+	handle @google_verification {
+		header Content-Type "text/html; charset=utf-8"
+		respond "google-site-verification: google3ac2616a1ec75406.html" 200
+	}
+
 	@health path /caddy-health
 	handle @health {
 		respond "ok" 200

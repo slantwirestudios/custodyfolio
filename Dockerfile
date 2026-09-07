@@ -45,6 +45,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=production-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/report-growth-scorecard.mjs ./scripts/report-growth-scorecard.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/growth-scorecard-lib.mjs ./scripts/growth-scorecard-lib.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/verify-malware-scanner.mjs ./scripts/verify-malware-scanner.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/verify-supabase-auth-public-settings.mjs ./scripts/verify-supabase-auth-public-settings.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/verify-security-headers.mjs ./scripts/verify-security-headers.mjs
@@ -55,8 +57,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts/storage-backup-lib.mjs ./
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/backup-supabase-storage.mjs ./scripts/backup-supabase-storage.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/verify-supabase-storage-backup.mjs ./scripts/verify-supabase-storage-backup.mjs
 
-COPY --from=builder --chown=nextjs:nodejs /app/scripts/report-growth-scorecard.mjs ./scripts/report-growth-scorecard.mjs
-COPY --from=builder --chown=nextjs:nodejs /app/scripts/growth-scorecard-lib.mjs ./scripts/growth-scorecard-lib.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/first-record-ease-report-lib.mjs ./scripts/first-record-ease-report-lib.mjs
 
 USER nextjs
