@@ -331,6 +331,8 @@ export function generatePrintableReportPdf(packet: PrintableReportPacket) {
   }
 
   function tableRecordLines(table: SectionExportTable, row: string[]) {
+    document.setFont("helvetica", "normal");
+    document.setFontSize(7.8);
     return table.headers.flatMap((header, index) => {
       const value = pdfText(row[index]).trim();
       if (!value) return [];
@@ -339,6 +341,11 @@ export function generatePrintableReportPdf(packet: PrintableReportPacket) {
   }
 
   function drawTable(table: SectionExportTable) {
+    const maximumCardHeight = contentBottom - (pageMargin + 24);
+    const firstHeight = table.rows.length ? 28 + tableRecordLines(table, table.rows[0]).length * 9.2 : 24;
+    // Keep the heading with the first card, or with the opening lines of a long card.
+    const openingHeight = firstHeight + 8 <= maximumCardHeight - 30 ? firstHeight + 8 : 45;
+    ensureSpace(30 + openingHeight);
     drawSectionTitle(table.title);
     if (table.rows.length === 0) {
       document.setFont("helvetica", "italic");
@@ -353,9 +360,9 @@ export function generatePrintableReportPdf(packet: PrintableReportPacket) {
       const lines = tableRecordLines(table, row);
       const lineHeight = 9.2;
       const fullHeight = 28 + lines.length * lineHeight;
-      const maximumCardHeight = contentBottom - (pageMargin + 24);
+      const availableCardHeight = maximumCardHeight - (rowIndex === 0 ? 30 : 0);
 
-      if (fullHeight <= maximumCardHeight) {
+      if (fullHeight + 8 <= availableCardHeight) {
         ensureSpace(fullHeight + 8);
         setFillColor(document, [255, 255, 255]);
         setDrawColor(document, border);

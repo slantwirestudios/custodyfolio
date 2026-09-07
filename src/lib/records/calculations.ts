@@ -686,27 +686,12 @@ function expenseSeverity(expense: ExpenseItem): CalendarEvent["severity"] {
 }
 
 function noteSeverity(note: DateNote): CalendarEvent["severity"] {
-  if (note.category === "safety") return "critical";
-  const tags = new Set(note.tags.map((tag) => tag.toLowerCase()));
-  if (
-    tags.has("late_exchange") ||
-    tags.has("refused_exchange") ||
-    tags.has("missed_exchange") ||
-    tags.has("no_facetime") ||
-    tags.has("post_call_notice") ||
-    tags.has("unanswered_call")
-  ) {
-    return "attention";
-  }
-  if (
-    note.category === "exchange" ||
-    note.category === "child_support" ||
-    note.category === "schedule_change" ||
-    note.category === "court"
-  ) {
-    return "attention";
-  }
-  return "neutral";
+  // A topic (including safety or court) does not establish an adverse event.
+  // Preserve explicit issue tags; user-selected timeline designations are applied later.
+  return hasIssueTag(note, [
+    "late_exchange", "refused_exchange", "missed_exchange",
+    "no_facetime", "no_face_time", "no_ft",
+  ]) ? "attention" : "neutral";
 }
 
 export function buildCalendarEvents(
@@ -1039,7 +1024,7 @@ export function timelineSearchText(event: CalendarEvent) {
     .toLowerCase();
 }
 
-function hasIssueTag(event: CalendarEvent, tags: string[]) {
+function hasIssueTag(event: Pick<CalendarEvent, "tags">, tags: string[]) {
   return (event.tags || []).some((tag) =>
     tags.includes(tag.trim().toLowerCase().replace(/[\s-]+/g, "_"))
   );

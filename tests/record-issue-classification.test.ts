@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildCalendarEvents, isLateExchangeTimelineEvent, isMissedExchangeTimelineEvent, isNoFaceTimeTimelineEvent, isPostCallFaceTimeNotice } from "@/lib/records/calculations";
 import { createRecordsSeed, demoCaseId, demoUserId } from "@/lib/records/seed";
-import type { CalendarEvent } from "@/lib/records/types";
+import type { CalendarEvent, NoteCategory } from "@/lib/records/types";
 
 function note(body: string, tags: string[] = []): CalendarEvent {
   return { id: "fictional-note", caseId: demoCaseId, date: "2026-05-07", type: "custody_note", title: "Fictional example", body, tags };
@@ -64,5 +64,30 @@ describe("explicit classifications remain available", () => {
     const day = log.orderedExchangeAt.slice(0, 10);
     const event = buildCalendarEvents(dataset, demoUserId, demoCaseId, { from: day, to: day }).find((item) => item.id === `log-${log.id}`)!;
     expect(isLateExchangeTimelineEvent(event)).toBe(true);
+  });
+});
+
+
+describe("note topics are not adverse outcomes", () => {
+  it.each(["exchange", "safety", "child_support", "schedule_change", "court"] as NoteCategory[])(
+    "keeps an ordinary %s note neutral", (category) => {
+      const dataset = createRecordsSeed();
+      const entry = dataset.dateNotes[0];
+      entry.category = category;
+      entry.title = "Fictional routine update";
+      entry.body = "Everything went as planned.";
+      entry.tags = [];
+      const event = buildCalendarEvents(dataset, demoUserId, demoCaseId, { from: entry.noteDate, to: entry.noteDate }).find((item) => item.relatedIds?.includes(entry.id))!;
+      expect(event.severity).toBe("neutral");
+    }
+  );
+  it("retains explicit issue tags", () => {
+    const dataset = createRecordsSeed();
+    const entry = dataset.dateNotes[0];
+    entry.category = "other";
+    entry.tags = ["Late Exchange"];
+    const range = { from: entry.noteDate, to: entry.noteDate };
+    const event = buildCalendarEvents(dataset, demoUserId, demoCaseId, range).find((item) => item.relatedIds?.includes(entry.id))!;
+    expect(event.severity).toBe("attention");
   });
 });
