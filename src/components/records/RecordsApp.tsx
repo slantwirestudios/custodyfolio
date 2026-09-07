@@ -880,11 +880,19 @@ export default function RecordsApp() {
     if (recordsStorageMode === "supabase") {
       prepareForAccountBoundary();
     }
-    void signOutRecordsSession().catch(() => {
-      if (typeof window !== "undefined") {
-        window.location.replace("/records?auth=logout-warning");
-      }
-    });
+    void signOutRecordsSession()
+      .then(() => {
+        if (recordsStorageMode === "supabase" && typeof window !== "undefined") {
+          // Reload after cookies are cleared so the signed-out screen does not
+          // wait on the dataset hydration that logout deliberately reset.
+          window.location.replace("/records");
+        }
+      })
+      .catch(() => {
+        if (typeof window !== "undefined") {
+          window.location.replace("/records?auth=logout-warning");
+        }
+      });
     clearSession();
     setMfaResumeRequired(false);
     setSession(null);
