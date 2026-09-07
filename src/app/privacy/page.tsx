@@ -55,6 +55,7 @@ const sections: PolicySection[] = [
   {
     title: "Optional product feedback",
     body: [
+      "The dashboard may ask whether saving a first record was easy. A Yes or No answer is stored with your account identifier, question version, and response time until account deletion. Answering this optional poll does not grant permission for email follow-up and does not collect record contents.",
       "After an adult customer saves a first record, Custody Folio may offer an optional invitation to provide product feedback. The invitation concerns the product experience, not the contents of customer records, and declining does not affect access, trial, or subscription status.",
       "If a customer chooses Yes, contact me once, we store the account identifier, the invitation version, the permission choice, and a contact count limited to one. We do not copy custody record contents into the feedback consent record.",
       "A later feedback message may be sent only after separate operational authorization and only from support@custodyfolio.com. Custody Folio does not send a message merely because the customer selects the permission choice.",

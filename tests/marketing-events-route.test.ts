@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { resetRateLimitStore } from "@/lib/security/rateLimit";
+import {
+  growthAttributionCookieName,
+  growthVisitorCookieName,
+} from "@/lib/marketing/growthEvents";
 
 const upsert = vi.hoisted(() => vi.fn());
 const from = vi.hoisted(() => vi.fn(() => ({ upsert })));
@@ -15,13 +19,15 @@ const secret = "01234567890123456789012345678901";
 
 function request(
   body: Record<string, unknown>,
-  origin = "https://custodyfolio.com"
+  origin = "https://custodyfolio.com",
+  cookie = ""
 ) {
   return new NextRequest("https://custodyfolio.com/api/marketing/events", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Origin: origin,
+      ...(cookie ? { Cookie: cookie } : {}),
     },
     body: JSON.stringify(body),
   });
@@ -91,6 +97,30 @@ describe("public marketing event route", () => {
     expect(upsert).not.toHaveBeenCalled();
   });
 
+  it.each(["marketing_page_viewed", "marketing_signup_selected"])(
+    "preserves demo attribution for %s without collecting arbitrary fields",
+    async (eventName) => {
+      const response = await POST(request({
+        eventName,
+        contentCode: "product_demo",
+        source: "email",
+        medium: "email",
+        campaign: "launch",
+        email: "fictional@example.com",
+      }));
+
+      expect(response.status).toBe(202);
+      expect(upsert.mock.calls[0][0]).toMatchObject({
+        event_name: eventName,
+        content_code: "product_demo",
+        source: "email",
+        medium: "email",
+        campaign: "launch",
+      });
+      expect(JSON.stringify(upsert.mock.calls[0][0])).not.toContain("fictional@example.com");
+    }
+  );
+
   it("classifies an untagged visit as direct", async () => {
     const response = await POST(
       request({
@@ -103,6 +133,54 @@ describe("public marketing event route", () => {
     expect(upsert.mock.calls[0][0]).toMatchObject({
       source: "direct",
       medium: "direct",
+    });
+  });
+
+  it("sets a visitor and signed first touch attribution cookie", async () => {
+    const firstResponse = await POST(
+      request({
+        eventName: "marketing_page_viewed",
+        source: "checklist",
+        medium: "organic",
+        campaign: "checklist",
+        contentCode: "factual_checklist",
+      })
+    );
+
+    const visitorCookie = firstResponse.cookies.get(growthVisitorCookieName)?.value;
+    const attributionCookie = firstResponse.cookies.get(
+      growthAttributionCookieName
+    )?.value;
+    expect(visitorCookie).toMatch(/^[A-Za-z0-9_-]{32}$/);
+    expect(attributionCookie).toMatch(/^[A-Za-z0-9_-]+\.[a-f0-9]{64}$/);
+
+    const cookie = [
+      `${growthVisitorCookieName}=${visitorCookie}`,
+      `${growthAttributionCookieName}=${attributionCookie}`,
+    ].join("; ");
+    const secondResponse = await POST(
+      request(
+        {
+          eventName: "marketing_signup_selected",
+          contentCode: "factual_checklist",
+        },
+        "https://custodyfolio.com",
+        cookie
+      )
+    );
+
+    expect(secondResponse.cookies.get(growthVisitorCookieName)?.value).toBe(
+      visitorCookie
+    );
+    expect(
+      secondResponse.cookies.get(growthAttributionCookieName)?.value
+    ).toBeUndefined();
+    expect(upsert.mock.calls[1][0]).toMatchObject({
+      event_name: "marketing_signup_selected",
+      source: "checklist",
+      medium: "organic",
+      campaign: "checklist",
+      content_code: "factual_checklist",
     });
   });
 });

@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
 const requiredEnv = [
@@ -33,8 +33,10 @@ const supabase = createClient(
 );
 
 const runId = randomUUID();
-const password = `L2F-${randomUUID()}-isolation`;
 const emailDomain = process.env.RECORDS_ISOLATION_EMAIL_DOMAIN || "example.test";
+if (!emailDomain.endsWith(".test") && !emailDomain.endsWith(".invalid")) {
+  throw new Error("Isolation checks require a reserved .test or .invalid email domain.");
+}
 const userAEmail = `l2f-isolation-a-${runId}@${emailDomain}`;
 const userBEmail = `l2f-isolation-b-${runId}@${emailDomain}`;
 const caseKey = `isolation-${runId}`;
@@ -63,57 +65,9 @@ function cookieHeader(response) {
   return setCookies.map((cookie) => cookie.split(";")[0]).join("; ");
 }
 
-function mergeCookieHeaders(...headers) {
-  const cookies = new Map();
-  for (const header of headers) {
-    for (const part of String(header || "").split(";")) {
-      const trimmed = part.trim();
-      if (!trimmed) continue;
-      const separator = trimmed.indexOf("=");
-      if (separator <= 0) continue;
-      cookies.set(trimmed.slice(0, separator), trimmed.slice(separator + 1));
-    }
-  }
-  return [...cookies.entries()].map(([key, value]) => `${key}=${value}`).join("; ");
-}
-
-const base32Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-
-function decodeBase32(input) {
-  const normalized = String(input || "").replace(/=+$/g, "").replace(/\s+/g, "").toUpperCase();
-  let bits = "";
-  for (const character of normalized) {
-    const value = base32Alphabet.indexOf(character);
-    if (value === -1) continue;
-    bits += value.toString(2).padStart(5, "0");
-  }
-
-  const bytes = [];
-  for (let offset = 0; offset + 8 <= bits.length; offset += 8) {
-    bytes.push(Number.parseInt(bits.slice(offset, offset + 8), 2));
-  }
-  return Buffer.from(bytes);
-}
-
-function totpCode(secret, timestamp = Date.now()) {
-  const key = decodeBase32(secret);
-  const counter = Math.floor(timestamp / 30_000);
-  const buffer = Buffer.alloc(8);
-  buffer.writeBigUInt64BE(BigInt(counter));
-  const digest = createHmac("sha1", key).update(buffer).digest();
-  const offset = digest[digest.length - 1] & 0x0f;
-  const binary =
-    ((digest[offset] & 0x7f) << 24) |
-    ((digest[offset + 1] & 0xff) << 16) |
-    ((digest[offset + 2] & 0xff) << 8) |
-    (digest[offset + 3] & 0xff);
-  return String(binary % 1_000_000).padStart(6, "0");
-}
-
 async function createTestUser(email) {
   const { data, error } = await supabase.auth.admin.createUser({
     email,
-    password,
     email_confirm: true,
     user_metadata: {
       purpose: "custody-folio-two-user-isolation-test",
@@ -128,56 +82,25 @@ async function createTestUser(email) {
   return data.user.id;
 }
 
+const csrfByCookies = new Map();
+
 async function login(email) {
-  const response = await fetch(`${appBaseUrl}/api/records/auth/login`, {
+  const generated = await supabase.auth.admin.generateLink({ type: "magiclink", email });
+  const code = generated.data?.properties?.email_otp;
+  assert(!generated.error && /^\d{6}$/.test(code || ""), "Unable to generate synthetic email code.");
+  const response = await fetch(`${appBaseUrl}/api/records/auth/email-code/verify`, {
     method: "POST",
     headers: trustedJsonHeaders,
-    body: JSON.stringify({
-      email,
-      password,
-      adultConfirmed: true,
-    }),
+    body: JSON.stringify({ email, code, adultConfirmed: true, legalAccepted: true, workspace: "records" }),
   });
-
   const body = await response.json().catch(() => ({}));
-  if (response.status === 403 && body.mfaEnrollmentRequired && body.enrollment?.factorId && body.enrollment?.secret) {
-    const enrollmentCookies = cookieHeader(response);
-    const verifyResponse = await fetch(`${appBaseUrl}/api/records/auth/mfa/enroll/verify`, {
-      method: "POST",
-      headers: {
-        ...trustedJsonHeaders,
-        Cookie: enrollmentCookies,
-      },
-      body: JSON.stringify({
-        factorId: body.enrollment.factorId,
-        code: totpCode(body.enrollment.secret),
-      }),
-    });
-    const verifyBody = await verifyResponse.json().catch(() => ({}));
-    if (!verifyResponse.ok) {
-      throw new Error(
-        `Records MFA enrollment failed with ${verifyResponse.status}: ${verifyBody.error || "unknown error"}`
-      );
-    }
-
-    const cookies = mergeCookieHeaders(enrollmentCookies, cookieHeader(verifyResponse));
-    assert(
-      cookies.includes("l2f-records-access") || cookies.includes("__Host-l2f-records-access"),
-      "Records MFA enrollment did not set an access cookie."
-    );
-    assert(verifyBody.session?.userId, "Records MFA enrollment did not return a user id.");
-    return { cookies, userId: verifyBody.session.userId };
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      `Records login failed with ${response.status}: ${body.error || "unknown error"}`
-    );
-  }
-
+  assert(response.ok && body.session?.userId, `Email-code login failed with ${response.status}.`);
   const cookies = cookieHeader(response);
-  assert(cookies.includes("l2f-records-access") || cookies.includes("__Host-l2f-records-access"), "Records login did not set an access cookie.");
-  assert(body.session?.userId, "Records login did not return a user id.");
+  assert(cookies.includes("l2f-records-access"), "Email-code login did not set an access cookie.");
+  const csrfResponse = await fetch(`${appBaseUrl}/api/records/auth/csrf`, { headers: { Cookie: cookies } });
+  const csrfBody = await csrfResponse.json();
+  assert(csrfResponse.ok && csrfBody.token, "Unable to obtain synthetic session CSRF token.");
+  csrfByCookies.set(cookies, csrfBody.token);
   return { cookies, userId: body.session.userId };
 }
 
@@ -223,14 +146,20 @@ function syntheticDataset(ownerUserId, evidenceItems = []) {
 }
 
 async function saveDataset(cookies, ownerUserId, evidenceItems = []) {
+  const currentResponse = await fetch(`${appBaseUrl}/api/records/dataset?caseId=${encodeURIComponent(caseKey)}`, {
+    headers: { Cookie: cookies, "x-custody-folio-account": ownerUserId },
+  });
+  assert(currentResponse.ok, `Unable to read dataset version: ${currentResponse.status}.`);
+  const current = await currentResponse.json();
   const response = await fetch(`${appBaseUrl}/api/records/dataset?caseId=${encodeURIComponent(caseKey)}`, {
     method: "PUT",
     headers: {
       ...trustedJsonHeaders,
       Cookie: cookies,
+      "x-l2f-csrf": csrfByCookies.get(cookies),
       "x-custody-folio-account": ownerUserId,
     },
-    body: JSON.stringify({ dataset: syntheticDataset(ownerUserId, evidenceItems) }),
+    body: JSON.stringify({ dataset: syntheticDataset(ownerUserId, evidenceItems), expectedUpdatedAt: current.updatedAt }),
   });
 
   const body = await response.json().catch(() => ({}));
@@ -243,6 +172,7 @@ async function loadDataset(cookies, ownerUserId) {
   const response = await fetch(`${appBaseUrl}/api/records/dataset?caseId=${encodeURIComponent(caseKey)}`, {
     headers: {
       Cookie: cookies,
+      "x-l2f-csrf": csrfByCookies.get(cookies),
       "x-custody-folio-account": ownerUserId,
     },
   });
@@ -309,6 +239,7 @@ async function evidenceDownload(cookies, metadata) {
     headers: {
       ...trustedJsonHeaders,
       Cookie: cookies,
+      "x-l2f-csrf": csrfByCookies.get(cookies),
     },
     body: JSON.stringify({ evidence: metadata }),
   });
@@ -320,31 +251,32 @@ async function evidenceDelete(cookies, metadata) {
     headers: {
       ...trustedJsonHeaders,
       Cookie: cookies,
+      "x-l2f-csrf": csrfByCookies.get(cookies),
     },
     body: JSON.stringify({ evidence: metadata }),
   });
 }
 
 async function cleanup() {
-  if (storagePath) {
-    await supabase.storage.from(storageBucket).remove([storagePath]).catch(() => undefined);
-  }
-
-  if (userAId || userBId) {
+  const errors = [];
+  async function remove(label, operation) {
     try {
-      await supabase
-        .from("records_case_snapshots")
-        .delete()
-        .in("user_id", [userAId, userBId].filter(Boolean));
+      const result = await operation();
+      if (result.error) throw result.error;
     } catch {
-      // Best-effort cleanup; auth users are still removed below.
+      errors.push(label);
     }
   }
-
-  if (process.env.KEEP_ISOLATION_TEST_USERS !== "true") {
-    if (userAId) await supabase.auth.admin.deleteUser(userAId).catch(() => undefined);
-    if (userBId) await supabase.auth.admin.deleteUser(userBId).catch(() => undefined);
+  if (storagePath) {
+    await remove("synthetic evidence", () => supabase.storage.from(storageBucket).remove([storagePath]));
   }
+  for (const userId of [userAId, userBId].filter(Boolean)) {
+    for (const table of ["records_case_snapshots", "custody_folio_billing_accounts", "records_profiles"]) {
+      await remove(table, () => supabase.from(table).delete().eq("user_id", userId));
+    }
+    await remove("synthetic auth user", () => supabase.auth.admin.deleteUser(userId));
+  }
+  assert(errors.length === 0, `Synthetic cleanup failed: ${errors.join(", ")}. Run ID: ${runId}`);
 }
 
 try {
@@ -399,11 +331,18 @@ try {
   await saveDataset(userACookies, userAId);
   storagePath = "";
 
-  console.log("Two-user isolation verification passed.");
-  console.log(`TWO_USER_ISOLATION_TESTED_AT=${new Date().toISOString().slice(0, 10)}`);
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
 } finally {
-  await cleanup();
+  try {
+    await cleanup();
+  } catch (error) {
+    console.error(error.message);
+    process.exitCode = 1;
+  }
+}
+if (!process.exitCode) {
+  console.log("Two-user isolation verification passed; synthetic data cleaned up.");
+  console.log(`TWO_USER_ISOLATION_TESTED_AT=${new Date().toISOString().slice(0, 10)}`);
 }

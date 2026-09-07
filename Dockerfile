@@ -55,6 +55,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts/storage-backup-lib.mjs ./
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/backup-supabase-storage.mjs ./scripts/backup-supabase-storage.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/scripts/verify-supabase-storage-backup.mjs ./scripts/verify-supabase-storage-backup.mjs
 
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/report-growth-scorecard.mjs ./scripts/report-growth-scorecard.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/growth-scorecard-lib.mjs ./scripts/growth-scorecard-lib.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/first-record-ease-report-lib.mjs ./scripts/first-record-ease-report-lib.mjs
+
 USER nextjs
 
 EXPOSE 3000

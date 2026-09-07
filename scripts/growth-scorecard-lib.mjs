@@ -15,6 +15,7 @@ const growthSources = z.enum([
 ]);
 
 const growthContentCodes = z.enum([
+  "product_demo",
   "homepage",
   "header_desktop",
   "header_mobile",

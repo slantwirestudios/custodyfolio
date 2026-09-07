@@ -42,6 +42,7 @@ const growthCampaigns = new Set([
   "customer_feedback",
 ]);
 const growthContentCodes = new Set([
+  "product_demo",
   "homepage",
   "header_desktop",
   "header_mobile",

@@ -1,3 +1,4 @@
+import { validateFirstRecordEaseReport } from "./first-record-ease-report-lib.mjs";
 import { createClient } from "@supabase/supabase-js";
 import {
   buildGrowthScorecardRpcParameters,
@@ -29,8 +30,11 @@ async function main() {
   );
   const to = dateEnvironment("GROWTH_WINDOW_END", new Date().toISOString());
   const excludedUserIds = parseGrowthExcludedUserIds(
-    process.env.GROWTH_EXCLUDED_USER_IDS
+    requiredEnvironment("GROWTH_EXCLUDED_USER_IDS")
   );
+  if (excludedUserIds.length === 0) {
+    throw new Error("At least one verified internal account exclusion is required.");
+  }
   const parameters = buildGrowthScorecardRpcParameters({
     from,
     to,
@@ -57,7 +61,13 @@ async function main() {
   }
 
   const report = validateGrowthScorecard(data);
-  console.log(JSON.stringify(report, null, 2));
+  const { data: pollData, error: pollError } = await client.rpc(
+    "custody_folio_first_record_ease_report",
+    { p_from: parameters.p_from, p_to: parameters.p_to, p_excluded_user_ids: excludedUserIds }
+  );
+  if (pollError) throw new Error("Unable to load aggregate first-record ease report.");
+  const firstRecordEase = validateFirstRecordEaseReport(pollData);
+  console.log(JSON.stringify({ ...report, first_record_ease: firstRecordEase }, null, 2));
 }
 
 main().catch((error) => {

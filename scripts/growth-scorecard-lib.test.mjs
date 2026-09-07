@@ -247,3 +247,9 @@ test("deduplicates valid internal exclusion values", () => {
     [userId]
   );
 });
+
+test("accepts the demo content label in aggregate reporting", () => {
+  const demo = structuredClone(validReport);
+  demo.acquisition.visits_by_content = [{ content_code: "product_demo", count: 5, suppressed: false }];
+  assert.equal(validateGrowthScorecard(demo).acquisition.visits_by_content[0].content_code, "product_demo");
+});
