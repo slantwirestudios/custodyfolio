@@ -371,6 +371,9 @@ export interface TimelineDesignation {
 }
 
 export interface CalendarEvent {
+  // Derived from exchange logs at render time; not persisted as new record data.
+  exchangeStatus?: ExchangeStatus;
+  exchangeIsLate?: boolean;
   id: Id;
   caseId: Id;
   date: string;

@@ -824,6 +824,8 @@ export function buildCalendarEvents(
         time: actualTime || orderedTime,
         sortAt: log.actualExchangeAt || log.orderedExchangeAt,
         type: "logged_exchange" as const,
+        exchangeStatus: log.status,
+        exchangeIsLate: timing.isLate,
         title: `Logged exchange: ${labelExchangeStatus(log.status)}`,
         detail: joinParts([
           orderedTime ? `Ordered ${orderedDate} ${orderedTime}` : undefined,
@@ -1037,121 +1039,31 @@ export function timelineSearchText(event: CalendarEvent) {
     .toLowerCase();
 }
 
-function includesAny(value: string, terms: string[]) {
-  return terms.some((term) => value.includes(term));
+function hasIssueTag(event: CalendarEvent, tags: string[]) {
+  return (event.tags || []).some((tag) =>
+    tags.includes(tag.trim().toLowerCase().replace(/[\s-]+/g, "_"))
+  );
 }
 
 export function isLateExchangeTimelineEvent(event: CalendarEvent) {
-  const text = timelineSearchText(event);
-
-  if (event.type === "logged_exchange") {
-    return includesAny(text, [
-      "completed late",
-      "late exchange",
-      "minutes after ordered time",
-      "after ordered time",
-    ]);
-  }
-
-  if (event.type !== "custody_note") return false;
-
-  const exchangeLanguage = includesAny(text, [
-    "late exchange",
-    "late drop",
-    "late transition",
-    "drop off",
-    "drop-off",
-    "dropped off",
-    "showed up",
-    "arrived",
-    "arrival",
-    "exchange",
-    "transition",
-  ]);
-  const lateLanguage = includesAny(text, [
-    "late",
-    "not on time",
-    "after ordered time",
-    "court order",
-    "ordered time",
-    "minutes after",
-    "showed up at",
-    "arrived at",
-    "dropped off at",
-  ]);
-
-  return exchangeLanguage && lateLanguage;
+  if (event.type === "logged_exchange") return event.exchangeIsLate === true;
+  return event.type === "custody_note" && hasIssueTag(event, ["late_exchange"]);
 }
 
 export function isMissedExchangeTimelineEvent(event: CalendarEvent) {
-  const text = timelineSearchText(event);
-
   if (event.type === "logged_exchange") {
-    return includesAny(text, ["missed", "refused"]);
+    return event.exchangeStatus === "missed" || event.exchangeStatus === "refused";
   }
-
-  if (event.type !== "custody_note") return false;
-
-  return includesAny(text, [
-    "missed exchange",
-    "refused exchange",
-    "refused to bring",
-    "would not bring",
-    "did not bring",
-    "unable to exchange",
-    "refuses to bring",
-  ]);
+  return event.type === "custody_note" && hasIssueTag(event, ["missed_exchange", "refused_exchange"]);
 }
 
 export function isNoFaceTimeTimelineEvent(event: CalendarEvent) {
-  if (event.type !== "custody_note") return false;
-
-  const text = timelineSearchText(event);
-  const hasFaceTimeLanguage = /\bft\b/.test(text) || includesAny(text, ["facetime", "face time"]);
-  if (!hasFaceTimeLanguage) return false;
-
-  return includesAny(text, [
-    "no_facetime",
-    "no facetime conducted",
-    "no facetime",
-    "no face time",
-    "no ft",
-    "not tonight",
-    "not today",
-    "can't facetime",
-    "cannot facetime",
-    "could not facetime",
-    "unable to facetime",
-    "not able",
-    "no service",
-    "won't have much service",
-  ]);
+  return event.type === "custody_note" && hasIssueTag(event, ["no_facetime", "no_face_time", "no_ft"]);
 }
 
 export function isPostCallFaceTimeNotice(event: CalendarEvent) {
-  if (!isNoFaceTimeTimelineEvent(event)) return false;
-
-  const text = timelineSearchText(event);
-  return includesAny(text, [
-    "post_call_notice",
-    "call_attempt_first",
-    "unanswered_call",
-    "after attempted",
-    "after an attempted",
-    "after a call",
-    "after i called",
-    "after calling",
-    "after request",
-    "called a few minutes ago",
-    "called about",
-    "facetimed about",
-    "facetimed a few minutes ago",
-    "tried to facetime",
-    "attempted to facetime",
-    "went straight to voicemail",
-    "sent to voicemail",
-    "cancelled the call",
-    "call was sent",
+  return isNoFaceTimeTimelineEvent(event) && hasIssueTag(event, [
+    "post_call_notice", "call_attempt_first", "unanswered_call",
   ]);
 }
 

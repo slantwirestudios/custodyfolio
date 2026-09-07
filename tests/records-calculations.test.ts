@@ -898,6 +898,48 @@ describe("privacy and safety helpers", () => {
     expect(csv).not.toContain("chart_data");
   });
 
+  it.each([
+    "Pickup was scheduled for 6:00 p.m. Parent B arrived at 6:00 p.m., on time.",
+    "Parent B arrived at 6:15 p.m.",
+    "Parent B arrived at the court ordered time.",
+    "There was no late exchange today.",
+    "We discussed a possible late exchange next week.",
+    "Parent B arrived with a chocolate cake.",
+  ])("does not infer a late exchange from note prose: %s", (body) => {
+    const event: CalendarEvent = {
+      id: "on-time-note", caseId: demoCaseId, date: "2026-05-07",
+      type: "custody_note", title: "Pickup example", body,
+      tags: ["quick event"], severity: "neutral",
+    };
+    expect(isLateExchangeTimelineEvent(event)).toBe(false);
+    expect(buildDashboardTimelineStats([event]).lateExchangeCount).toBe(0);
+  });
+
+  it.each(["late_exchange", "late exchange", "Late-Exchange"])(
+    "recognizes an explicit late-exchange tag: %s", (tag) => {
+      const event: CalendarEvent = {
+        id: "tagged-note", caseId: demoCaseId, date: "2026-05-07",
+        type: "custody_note", title: "Pickup example", tags: [tag], severity: "neutral",
+      };
+      expect(isLateExchangeTimelineEvent(event)).toBe(true);
+    }
+  );
+
+  it("keeps on-time prose out of report late counts while retaining tagged notes", () => {
+    const dataset = createRecordsSeed();
+    dataset.dateNotes = [{
+      ...dataset.dateNotes[0], id: "on-time-note", userId: demoUserId, caseId: demoCaseId,
+      noteDate: "2026-05-07", title: "Fictional on-time pickup",
+      body: "Parent B arrived at 6:00 p.m., on time.", tags: ["quick event"], includeInReports: true,
+    }];
+    dataset.exchangeLogs = [];
+    const untagged = buildReportPreview(dataset, demoUserId, demoCaseId, range, "incident_timeline");
+    expect(untagged.metrics.find((metric) => metric.label === "Late exchanges")?.value).toBe(0);
+    dataset.dateNotes[0].tags = ["late exchange"];
+    const tagged = buildReportPreview(dataset, demoUserId, demoCaseId, range, "incident_timeline");
+    expect(tagged.metrics.find((metric) => metric.label === "Late exchanges")?.value).toBe(1);
+  });
+
   it("derives dashboard counts from timeline records including imported text notes", () => {
     const events: CalendarEvent[] = [
       {

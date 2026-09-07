@@ -1406,8 +1406,8 @@ export function buildReportPreview(
       focus: "Virtual contact outcomes and notice timing",
       summaries: [
         `${noFaceTimeEvents.length} uncompleted virtual contact record${noFaceTimeEvents.length === 1 ? "" : "s"} ${noFaceTimeEvents.length === 1 ? "is" : "are"} in this range.`,
-        `${postCallNoFaceTimeEvents.length} of those records (${postCallShare}) indicate notice after a call/request or unanswered call based on the entered notes/tags.`,
-        "The report separates post-call notice from other uncompleted contact records so the timing pattern is visible.",
+        `${postCallNoFaceTimeEvents.length} of those records (${postCallShare}) indicate notice after a call/request or unanswered call based on explicit note tags.`,
+        'Only notes tagged "no facetime", "no face time", or "no ft" enter this count. Notice timing also requires an explicit tag such as "post call notice". Ordinary note wording does not establish a failed call.',
       ],
       metrics: [
         { label: "Contact not completed", value: noFaceTimeEvents.length, detail: `${range.from} to ${range.to}` },
@@ -1509,11 +1509,12 @@ export function buildReportPreview(
       summaries: [
         `${issueEvents.length} timeline record${issueEvents.length === 1 ? "" : "s"} match the issue filters in this range.`,
         `${lateExchangeEvents.length} are marked late exchange records and ${noFaceTimeEvents.length} are uncompleted virtual contact records.`,
+        'Exchange counts use recorded log status/timing or notes tagged "late exchange", "missed exchange", or "refused exchange". Uncompleted contact uses notes tagged "no facetime", "no face time", or "no ft". Ordinary note wording does not establish an issue.',
         "Custody day color blocks are excluded from this report so the timeline only shows event records.",
       ],
       metrics: [
         { label: "Issue records", value: issueEvents.length, detail: `${range.from} to ${range.to}` },
-        { label: "Late exchanges", value: lateExchangeEvents.length, detail: "Log or note pattern" },
+        { label: "Late exchanges", value: lateExchangeEvents.length, detail: "Exchange log or explicitly tagged note" },
         { label: "Contact not completed", value: noFaceTimeEvents.length, detail: "Communication notes" },
         { label: "Missed/refused", value: missedExchangeEvents.length, detail: "Exchange records" },
       ],
