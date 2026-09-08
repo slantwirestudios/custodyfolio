@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   createAppStoreConnectToken,
   extractTestFlightUrl,
+  listBuilds,
   selectAppStoreVersion,
   selectExternalVerificationBuild,
   selectUploadedBuild,
@@ -124,6 +125,23 @@ test("refuses to guess when two builds were uploaded in the release window", () 
       }),
     /refusing to guess/,
   );
+});
+
+test("discovers a new version's lower build number from the app-filtered upload listing", async () => {
+  const client = {
+    async request(path) {
+      const url = new URL(path, "https://api.appstoreconnect.apple.com");
+      assert.equal(url.pathname, "/v1/builds");
+      assert.equal(url.searchParams.get("filter[app]"), "6789433883");
+      assert.equal(url.searchParams.get("sort"), "-uploadedDate");
+      return { payload: { data: [
+        { id: "approved", attributes: { version: "17", uploadedDate: "2026-08-27T18:32:18Z", expired: false } },
+        { id: "update", attributes: { version: "12", uploadedDate: "2026-09-08T19:34:14Z", expired: false } },
+      ] } };
+    },
+  };
+  const builds = await listBuilds(client);
+  assert.equal(selectUploadedBuild(builds, { uploadedAfter: "2026-09-08T19:32:20Z" }).id, "update");
 });
 
 test("sorts App Store Connect builds locally by newest upload", () => {

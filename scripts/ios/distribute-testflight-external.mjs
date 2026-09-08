@@ -337,11 +337,13 @@ function assertBeforeDeadline(deadline, message) {
   if (Date.now() >= deadline) throw new Error(message);
 }
 
-async function listBuilds(client) {
+export async function listBuilds(client) {
   const { payload } = await client.request(
-    query(`/v1/apps/${DEFAULTS.appId}/builds`, {
+    query("/v1/builds", {
+      "filter[app]": DEFAULTS.appId,
+      sort: "-uploadedDate",
       "fields[builds]": "version,uploadedDate,expired,processingState",
-      limit: "50",
+      limit: "200",
     }),
   );
   return sortBuildsByUploadedDateDescending(payload.data);
