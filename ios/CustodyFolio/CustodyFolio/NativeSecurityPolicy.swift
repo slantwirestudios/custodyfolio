@@ -1,5 +1,11 @@
 import Foundation
 
+enum WorkspaceMediaPolicy {
+    static func canPromptForMicrophone(scheme: String, host: String, isMainFrame: Bool, microphoneOnly: Bool) -> Bool {
+        scheme == "https" && SessionCookiePolicy.allowedHosts.contains(host) && isMainFrame && microphoneOnly
+    }
+}
+
 enum AppearancePreferencePolicy {
     static let storageKey = "custody-folio-appearance"
     static let allowedPreferences = Set(["system", "light", "dark"])
@@ -188,7 +194,7 @@ enum WorkspaceNavigationDecision: Equatable {
 
 enum WorkspaceNavigationPolicy {
     static func decision(for url: URL) -> WorkspaceNavigationDecision {
-        if url.scheme == "mailto" {
+        if ["mailto", "tel", "sms"].contains(url.scheme ?? "") {
             return .openExternally
         }
 

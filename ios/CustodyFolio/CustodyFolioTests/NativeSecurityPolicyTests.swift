@@ -4,6 +4,21 @@ import XCTest
 @testable import CustodyFolio
 
 final class NativeSecurityPolicyTests: XCTestCase {
+    func testMicrophonePromptsRequireProductHTTPSAndMainFrame() {
+        XCTAssertTrue(WorkspaceMediaPolicy.canPromptForMicrophone(scheme: "https", host: "custodyfolio.com", isMainFrame: true, microphoneOnly: true))
+        XCTAssertFalse(WorkspaceMediaPolicy.canPromptForMicrophone(scheme: "http", host: "custodyfolio.com", isMainFrame: true, microphoneOnly: true))
+        XCTAssertFalse(WorkspaceMediaPolicy.canPromptForMicrophone(scheme: "https", host: "example.com", isMainFrame: true, microphoneOnly: true))
+        XCTAssertFalse(WorkspaceMediaPolicy.canPromptForMicrophone(scheme: "https", host: "custodyfolio.com", isMainFrame: false, microphoneOnly: true))
+        XCTAssertFalse(WorkspaceMediaPolicy.canPromptForMicrophone(scheme: "https", host: "custodyfolio.com", isMainFrame: true, microphoneOnly: false))
+        XCTAssertNotNil(Bundle.main.object(forInfoDictionaryKey: "NSMicrophoneUsageDescription"))
+        XCTAssertNotNil(Bundle.main.object(forInfoDictionaryKey: "NSCameraUsageDescription"))
+    }
+
+    func testResourcePhoneAndTextLinksOpenOutsideTheWorkspace() throws {
+        for destination in ["tel:988", "sms:988"] {
+            XCTAssertEqual(WorkspaceNavigationPolicy.decision(for: try XCTUnwrap(URL(string: destination))), .openExternally)
+        }
+    }
     func testBillingBridgeAcceptsOnlyKnownProductsAndUUIDBindings() {
         let requestId = UUID()
         let accountToken = UUID()
