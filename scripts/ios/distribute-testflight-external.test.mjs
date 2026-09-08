@@ -216,7 +216,7 @@ test("selects exactly one target App Store version", () => {
   const selected = selectAppStoreVersion([
     { id: "version-1", attributes: { versionString: "1.0.0" } },
     { id: "version-2", attributes: { versionString: "1.1.0" } },
-  ]);
+  ], "1.0.0");
   assert.equal(selected.id, "version-1");
   assert.throws(
     () => selectAppStoreVersion([], "1.0.0"),

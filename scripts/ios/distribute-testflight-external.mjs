@@ -17,7 +17,7 @@ export const DEFAULTS = Object.freeze({
   testerBuddyUrl:
     "https://testerbuddy.app/join/684809d42ab353d76fc2ad69a7ea70b653a4c0acc38def27",
   locale: "en-US",
-  appStoreVersion: "1.0.0",
+  appStoreVersion: "1.0.1",
   pollSeconds: 30,
   timeoutMinutes: 120,
   whatsNew:

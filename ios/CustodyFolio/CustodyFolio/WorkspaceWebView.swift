@@ -245,7 +245,9 @@ struct WorkspaceWebView: UIViewRepresentable {
         configuration.limitsNavigationsToAppBoundDomains = true
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
         configuration.websiteDataStore = websiteDataStore
-        configuration.applicationNameForUserAgent = "CustodyFolio-iOS/1.0"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+        configuration.applicationNameForUserAgent = "CustodyFolio-iOS/\(version) CustodyFolioAudio/1"
+        configuration.allowsInlineMediaPlayback = true
         WorkspaceDisplayPolicy.apply(to: configuration.userContentController)
         configuration.userContentController.add(
             WeakScriptMessageHandler(delegate: context.coordinator),
@@ -276,6 +278,7 @@ struct WorkspaceWebView: UIViewRepresentable {
         webView.allowsBackForwardNavigationGestures = true
         webView.isInspectable = false
         webView.navigationDelegate = context.coordinator
+        webView.uiDelegate = context.coordinator
 
         let request = URLRequest(
             url: url,
@@ -317,7 +320,29 @@ struct WorkspaceWebView: UIViewRepresentable {
         )
     }
 
-    final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
+        func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+                     initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType,
+                     decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+            let allowed = WorkspaceMediaPolicy.canPromptForMicrophone(scheme: origin.protocol, host: origin.host,
+                isMainFrame: frame.isMainFrame, microphoneOnly: type == .microphone)
+            decisionHandler(allowed ? .prompt : .deny)
+        }
+
+        func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
+                     initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+            guard frame.isMainFrame, let url = frame.request.url,
+                  WorkspaceNavigationPolicy.decision(for: url) == .allowInWorkspace,
+                  let presenter = webView.window?.rootViewController else {
+                completionHandler(false); return
+            }
+            let alert = UIAlertController(title: "Custody Folio", message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in completionHandler(false) })
+            alert.addAction(UIAlertAction(title: "Continue", style: .default) { _ in completionHandler(true) })
+            var top = presenter
+            while let presented = top.presentedViewController { top = presented }
+            top.present(alert, animated: true)
+        }
         static let nativeDownloadHandlerName = "lostToFoundDownload"
         static let nativeChunkedDownloadHandlerName = "lostToFoundDownloadV2"
         static let nativeSessionHandlerName = "lostToFoundSession"
