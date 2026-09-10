@@ -3,7 +3,9 @@ import { generateKeyPairSync, verify as verifyBytes } from "node:crypto";
 import test from "node:test";
 
 import {
+  DEFAULTS,
   createAppStoreConnectToken,
+  ensureAppStoreVersionBuild,
   extractTestFlightUrl,
   listBuilds,
   selectAppStoreVersion,
@@ -13,6 +15,56 @@ import {
   sortBuildsByUploadedDateDescending,
   verifyPublicLinks,
 } from "./distribute-testflight-external.mjs";
+
+function appStoreAttachmentClient(initialBuild, finalBuild = initialBuild) {
+  const calls = [];
+  let patched = false;
+  return {
+    calls,
+    async request(path, options = {}) {
+      calls.push({ path, ...options });
+      if (path.includes("/apps/")) {
+        return { payload: { data: [{ id: "store-version", attributes: {
+          versionString: DEFAULTS.appStoreVersion,
+          appStoreState: "WAITING_FOR_REVIEW",
+        } }] } };
+      }
+      if (options.method === "PATCH") {
+        patched = true;
+        return { status: 204, payload: null };
+      }
+      return { payload: { data: patched ? finalBuild : initialBuild } };
+    },
+  };
+}
+
+const logoBuild = { id: "logo-build", attributes: {
+  version: "14", processingState: "VALID", expired: false,
+} };
+
+test("resuming TestFlight leaves an exact build already in App Review attached without mutation", async () => {
+  const client = appStoreAttachmentClient(logoBuild);
+  await ensureAppStoreVersionBuild(client, logoBuild);
+  assert.equal(client.calls.length, 2);
+  assert.ok(client.calls.every(call => !call.method || call.method === "GET"));
+});
+
+test("attaches a missing build and verifies Apple's readback", async () => {
+  const client = appStoreAttachmentClient(null, logoBuild);
+  await ensureAppStoreVersionBuild(client, logoBuild);
+  assert.equal(client.calls.length, 4);
+  assert.deepEqual(client.calls[2].body, { data: { type: "builds", id: logoBuild.id } });
+  assert.match(client.calls[3].path, /\/build\?/);
+});
+
+test("rejects stale or expired build attachments", async () => {
+  const stale = { ...logoBuild, id: "old-build" };
+  await assert.rejects(ensureAppStoreVersionBuild(appStoreAttachmentClient(stale), logoBuild), /did not retain exact build/);
+  const expired = { ...logoBuild, attributes: { ...logoBuild.attributes, expired: true } };
+  const client = appStoreAttachmentClient(expired);
+  await assert.rejects(ensureAppStoreVersionBuild(client, logoBuild), /did not retain exact build/);
+  assert.ok(client.calls.every(call => !call.method));
+});
 
 function decodeJson(segment) {
   return JSON.parse(Buffer.from(segment, "base64url").toString("utf8"));
