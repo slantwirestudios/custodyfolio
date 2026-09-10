@@ -514,7 +514,7 @@ export function selectAppStoreVersion(
   return matches[0];
 }
 
-async function ensureAppStoreVersionBuild(client, build) {
+export async function ensureAppStoreVersionBuild(client, build) {
   const { payload: versions } = await client.request(
     query(`/v1/apps/${DEFAULTS.appId}/appStoreVersions`, {
       "filter[platform]": "IOS",
@@ -523,30 +523,35 @@ async function ensureAppStoreVersionBuild(client, build) {
     }),
   );
   const version = selectAppStoreVersion(versions.data);
-  await client.request(
-    `/v1/appStoreVersions/${version.id}/relationships/build`,
-    {
-      method: "PATCH",
-      body: { data: { type: "builds", id: build.id } },
-    },
+  const buildPath = query(`/v1/appStoreVersions/${version.id}/build`, {
+    "fields[builds]": "version,processingState,expired",
+  });
+  let { payload: attached } = await client.request(
+    buildPath,
+    { allowStatuses: [404] },
   );
-  const { payload: attached } = await client.request(
-    query(`/v1/appStoreVersions/${version.id}/build`, {
-      "fields[builds]": "version,processingState,expired",
-    }),
-  );
+  if (attached?.data?.id !== build.id) {
+    await client.request(
+      `/v1/appStoreVersions/${version.id}/relationships/build`,
+      {
+        method: "PATCH",
+        body: { data: { type: "builds", id: build.id } },
+      },
+    );
+    ({ payload: attached } = await client.request(buildPath));
+  }
   if (
-    attached.data?.id !== build.id ||
-    attached.data?.attributes?.version !== build.attributes.version ||
-    attached.data?.attributes?.processingState !== "VALID" ||
-    attached.data?.attributes?.expired
+    attached?.data?.id !== build.id ||
+    attached?.data?.attributes?.version !== build.attributes.version ||
+    attached?.data?.attributes?.processingState !== "VALID" ||
+    attached?.data?.attributes?.expired
   ) {
     throw new Error(
       `App Store version ${DEFAULTS.appStoreVersion} did not retain exact build ${build.attributes.version}.`,
     );
   }
   console.log(
-    `Attached exact build ${build.attributes.version} to App Store version ${DEFAULTS.appStoreVersion}.`,
+    `Verified exact build ${build.attributes.version} is attached to App Store version ${DEFAULTS.appStoreVersion}.`,
   );
 }
 
