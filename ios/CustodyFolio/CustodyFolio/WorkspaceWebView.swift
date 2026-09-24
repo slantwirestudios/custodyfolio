@@ -175,9 +175,12 @@ private struct SecureWebScreen: View {
                     }
                     .buttonStyle(.borderedProminent)
                 }
-                .background(Color(uiColor: .systemBackground))
+                .background(Color("FolioCanvas"))
             }
         }
+            .background(Color("FolioCanvas"))
+            .toolbarBackground(Color("FolioNavigation"), for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

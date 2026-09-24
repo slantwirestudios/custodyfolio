@@ -113,6 +113,8 @@ struct HelpCenterView: View {
 
             NativePolicyFooterSections()
         }
+        .scrollContentBackground(.hidden)
+        .background(Color("FolioCanvas"))
         .navigationTitle("Help & Policies")
     }
 }

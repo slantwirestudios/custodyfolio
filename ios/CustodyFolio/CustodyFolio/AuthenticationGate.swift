@@ -51,7 +51,10 @@ struct AuthenticationGate: View {
 
             Spacer()
 
-            VStack(spacing: 6) {
+            DisclosureGroup("Policies & support") {
+                Link("Privacy Policy", destination: URL(string: "https://custodyfolio.com/privacy")!)
+                Link("Terms of Use", destination: URL(string: "https://custodyfolio.com/terms")!)
+                Link("Support", destination: URL(string: "mailto:support@custodyfolio.com")!)
                 Text("Disclaimer")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
@@ -64,6 +67,8 @@ struct AuthenticationGate: View {
             .padding(.horizontal, 24)
             .padding(.bottom, 20)
         }
+        .foregroundStyle(Color("FolioInk"))
+        .background(Color("FolioCanvas").ignoresSafeArea())
         .task {
             guard scenePhase == .active else { return }
             await authenticate()

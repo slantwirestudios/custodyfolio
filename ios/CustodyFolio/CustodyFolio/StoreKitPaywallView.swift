@@ -123,7 +123,7 @@ struct StoreKitPaywallView: View {
             .accessibilityHint("Apple will show the final localized charge before purchase.")
         }
         .padding()
-        .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+        .background(Color("FolioSurface"), in: RoundedRectangle(cornerRadius: 14))
         .overlay {
             RoundedRectangle(cornerRadius: 14)
                 .stroke(product.id == requestedProductID ? Color("AccentColor") : Color(uiColor: .separator))
@@ -236,7 +236,7 @@ struct StoreKitPaywallReviewView: View {
                                 .accessibilityHint("Apple will show the final localized charge before purchase.")
                         }
                         .padding()
-                        .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+                        .background(Color("FolioSurface"), in: RoundedRectangle(cornerRadius: 14))
                         .overlay {
                             RoundedRectangle(cornerRadius: 14)
                                 .stroke(Color(uiColor: .separator))

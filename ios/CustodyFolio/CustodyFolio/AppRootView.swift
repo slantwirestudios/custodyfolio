@@ -17,7 +17,7 @@ struct AppRootView: View {
                 .allowsHitTesting(isUnlocked)
                 .accessibilityHidden(!isUnlocked)
             } else {
-                Color(uiColor: .systemBackground)
+                Color("FolioCanvas")
                     .ignoresSafeArea()
             }
 
@@ -25,7 +25,7 @@ struct AppRootView: View {
                 ProgressView()
                     .controlSize(.large)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+                    .background(Color("FolioCanvas").ignoresSafeArea())
                     .zIndex(1)
             } else if !isUnlocked {
                 AuthenticationGate {
@@ -34,7 +34,7 @@ struct AppRootView: View {
                         isUnlocked = true
                     }
                 }
-                .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+                .background(Color("FolioCanvas").ignoresSafeArea())
                 .zIndex(1)
             }
         }
